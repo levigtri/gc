@@ -5,8 +5,6 @@ services:
     container_name: front
     env_file:
       - ./.env
-    # ports:
-    #   - "3000:80" # Mapeia a porta 3000 do host para a porta 80 no contêiner
     networks:
       - app-network
 
@@ -23,7 +21,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
-        restart: true
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3001/produtos" ]
+      interval: 30s
+      timeout: 10s
+      retries: 6
+    restart: always
 
   db:
     image: postgres:17
@@ -44,7 +47,28 @@ services:
       test: [ "CMD-SHELL", "pg_isready -U postgres -d fullstack3" ]
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 10
+
+  tests:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.tests
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/fullstack3?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+      back:
+        condition: service_healthy
+    working_dir: /app
+    networks:
+      - app-network
+    command: >
+      bash -c "until pg_isready -h db -p 5432; do
+              echo 'Aguardando o banco de dados ficar disponível...';
+              sleep 2;
+            done
+            npm run test:e2e"
 
   nginx:
     image: nginx:alpine
@@ -56,12 +80,14 @@ services:
     networks:
       - app-network
     depends_on:
-      - front
-      - back
+      front:
+        condition: service_started
+      back:
+        condition: service_healthy
 
 networks:
   app-network:
-    driver: bridge
+
 
 volumes:
   postgres-data:

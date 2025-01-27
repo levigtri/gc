@@ -1,0 +1,8 @@
+Mudamos a propriedade name para Integration Test , assim temos um nome mais intuitivo na listagem dos workflows .
+
+Na propriedade jobs mudamos de build para test e logo em seguida adicionamos um name .
+
+Outro ponto bem importante é um novo comando no package.json , o comando npm run test:compose , que irá ser da seguinte maneira:
+
+"test:compose": "docker-compose up --abort-on-container-exit --build"
+Quando o comando rodar ele irá buildar os containers docker, assim executando os nossos testes.
