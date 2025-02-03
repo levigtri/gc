@@ -63,12 +63,12 @@ services:
     working_dir: /app
     networks:
       - app-network
-    command: >
-      bash -c "until pg_isready -h db -p 5432; do
-              echo 'Aguardando o banco de dados ficar disponível...';
-              sleep 2;
-            done
-            npm run test:e2e"
+    # command: >
+    #   bash -c "until pg_isready -h db -p 5432; do
+    #           echo 'Aguardando o banco de dados ficar disponível...';
+    #           sleep 2;
+    #         done
+    #         npm run test:e2e"
 
   nginx:
     image: nginx:alpine
