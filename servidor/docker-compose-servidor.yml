@@ -1,0 +1,27 @@
+services:
+  front:
+    image: sobral.quixada.ufc.br/meu-frontend:latest
+    container_name: meu-frontend
+    env_file:
+      - ./.env
+    networks:
+      - app-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    ports:
+      - "8080:8080" # Mapeia a porta 80 do host para a porta 80 no contêiner
+    volumes:
+      - "./nginx.conf:/etc/nginx/nginx.conf:ro" # Monta o arquivo nginx.conf no contêiner
+    networks:
+      - app-network
+    depends_on:
+      - front
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres-data:

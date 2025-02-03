@@ -1,0 +1,73 @@
+stages:
+  - build
+  - test
+  - deploy
+
+build_backend:
+  stage: build
+  image: docker:24.0.5
+  services:
+    - name: docker:24.0.5-dind
+  script:
+    - docker login ${REGISTRY_ADDRESS} --username ${REGISTRY_USERNAME} --password ${REGISTRY_PASSWORD}
+    - docker build -t ${REGISTRY_BACKEND}:${TAG} -f ./backend/Dockerfile ./backend
+    - docker push ${REGISTRY_BACKEND}:${TAG}
+  only:
+    - TEST
+
+build_tests:
+  stage: build
+  image: docker:24.0.5
+  services:
+    - name: docker:24.0.5-dind
+  script:
+    - docker login ${REGISTRY_ADDRESS} --username ${REGISTRY_USERNAME} --password ${REGISTRY_PASSWORD}
+    - docker build -t ${REGISTRY_TESTS}:${TAG} ./backend/Dockerfile.tests ./backend
+    - docker push ${REGISTRY_TESTS}:${TAG}
+  only:
+    - TEST
+
+build_frontend:
+  stage: build
+  image: docker:24.0.5
+  services:
+    - name: docker:24.0.5-dind
+  script:
+    - docker login ${REGISTRY_ADDRESS} --username ${REGISTRY_USERNAME} --password ${REGISTRY_PASSWORD}
+    - docker build -t ${REGISTRY_FRONTEND}:${TAG} ./frontend
+    - docker push ${REGISTRY_FRONTEND}:${TAG}
+  only:
+    - TEST
+
+execute_tests:
+  stage: test
+  before_script:
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+    - echo "$SSH_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+  script:
+    - echo "Executando os tests..."
+    - ssh -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST} "cd ~/${WORK_DIR} && docker compose -f docker-compose.yml -f docker-compose-tests.yml down"
+    - ssh -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST} "cd ~/${WORK_DIR} && docker compose -f docker-compose-tests.yml up -d"
+  when: on_success
+
+deploy:
+  image: kroniak/ssh-client
+  stage: deploy
+  before_script:
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+    - echo "$SSH_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+  script:
+    - echo "Executando o deploy..."
+    - ssh -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST} "cd ~/${WORK_DIR} && docker compose -f docker-compose.yml -f docker-compose-tests.yml down"
+    - ssh -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST} "docker rmi ${REGISTRY_BACKEND}:${TAG}"
+    - ssh -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST} "docker rmi ${REGISTRY_FRONTEND}:${TAG}"
+    - ssh -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST} "docker pull ${REGISTRY_BACKEND}:${TAG}"
+    - ssh -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST} "docker pull ${REGISTRY_FRONTEND}:${TAG}"
+    - ssh -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST} "cd ~/${WORK_DIR} && docker compose -f docker-compose.yml up -d"
+  when: on_success 

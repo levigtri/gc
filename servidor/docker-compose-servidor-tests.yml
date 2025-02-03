@@ -1,0 +1,61 @@
+services:
+  back:
+    image: sobral.quixada.ufc.br/meu-backend:latest
+    container_name: meu-backend
+    env_file:
+      - ./.env
+    ports:
+      - "33001:3001" # Mapeia a porta 3001 do host para a porta 3001 no contêiner
+    networks:
+      - app-network
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://mombaca.quixada.ufc.br:33001/produtos" ]
+      interval: 30s
+      timeout: 10s
+      retries: 6
+    restart: always
+
+  db:
+    image: postgres:17
+    container_name: postgres
+    env_file:
+      - ./.env
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: "fullstack3"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d fullstack3" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  tests:
+    image: sobral.quixada.ufc.br/tests:latest
+    container_name: tests
+    env_file:
+      - ./.env
+    depends_on:
+      db:
+        condition: service_healthy
+      back:
+        condition: service_healthy
+    working_dir: /app
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres-data:

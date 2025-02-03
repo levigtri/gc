@@ -1,0 +1,64 @@
+services:
+  back:
+    build:
+      context: ${BACKEND_CONTEXT}
+    container_name: back
+    env_file:
+      - ./.env
+    ports:
+      - "3001:3001" # Mapeia a porta 3001 do host para a porta 3001 no contêiner
+    networks:
+      app-network:
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3001/produtos" ]
+      interval: 30s
+      timeout: 10s
+      retries: 6
+    restart: always
+
+  db:
+    image: postgres:17
+    container_name: postgres
+    env_file:
+      - ./.env
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: "fullstack3"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      app-network:
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d fullstack3" ]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+  tests:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.tests
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/fullstack3?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+      back:
+        condition: service_healthy
+    working_dir: /app
+    networks:
+      app-network:
+
+
+networks:
+  app-network:
+
+
+volumes:
+  postgres-data:
